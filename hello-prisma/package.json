@@ -1,0 +1,31 @@
+{
+  "name": "hello-prisma",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/next-auth": "^3.13.0",
+    "@types/node": "^24.5.2",
+    "@types/papaparse": "^5.3.16",
+    "@types/qrcode.react": "^1.0.5",
+    "@types/react-pdf": "^5.0.7",
+    "prisma": "^6.16.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "@react-pdf/renderer": "^4.3.1",
+    "lucide-react": "^0.544.0",
+    "next-auth": "^4.24.11",
+    "papaparse": "^5.5.3",
+    "qrcode.react": "^4.2.0"
+  }
+}
