@@ -1,9 +1,17 @@
+"use client";
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export type Company = { id: string; name: string };
 export type Site = { id: string; name: string; companyId: string };
 export type Area = { id: string; name: string; siteId: string };
-export type Point = { id: string; description: string; areaId: string };
+export type Point = {
+  id: string;
+  description: string;
+  areaId: string;
+  qrCode: string;
+  qrId: string;
+  scansRequiredPerHour?: number;
+};
 
 export type PatrolData = {
   companies: Company[];
@@ -12,9 +20,39 @@ export type PatrolData = {
   points: Point[];
 };
 
-const PatrolContext = createContext<any>(null);
+export interface PatrolLog {
+  officerName: string;
+  companyNumber: string;
+  pointId: string;
+  siteId: string;
+  geoLocation: string;
+  signature: string;
+  notes: string;
+}
 
-export const usePatrol = () => useContext(PatrolContext);
+export interface PatrolContextValue {
+  data: PatrolData;
+  addCompany: (name: string) => void;
+  deleteCompany: (companyId: string) => void;
+  addSite: (companyId: string, name: string) => void;
+  addArea: (siteId: string, name: string) => void;
+  addPoint: (
+    areaId: string,
+    description: string,
+    qrCode: string,
+    qrId: string,
+    scansRequiredPerHour?: number
+  ) => void;
+  addPatrolLog: (log: PatrolLog) => void;
+}
+
+const PatrolContext = createContext<PatrolContextValue | undefined>(undefined);
+
+export const usePatrol = (): PatrolContextValue => {
+  const context = useContext(PatrolContext);
+  if (!context) throw new Error('usePatrol must be used within a PatrolProvider');
+  return context;
+};
 
 export const PatrolProvider = ({ children }: { children: ReactNode }) => {
   const [data, setData] = useState<PatrolData>({
@@ -23,6 +61,10 @@ export const PatrolProvider = ({ children }: { children: ReactNode }) => {
     areas: [],
     points: [],
   });
+  const [patrolLogs, setPatrolLogs] = useState<PatrolLog[]>([]);
+  const addPatrolLog = (log: PatrolLog) => {
+    setPatrolLogs((prev: PatrolLog[]) => [...prev, log]);
+  };
 
   const addCompany = (name: string) => {
     setData(prev => ({
@@ -55,15 +97,31 @@ export const PatrolProvider = ({ children }: { children: ReactNode }) => {
     }));
   };
 
-  const addPoint = (areaId: string, description: string) => {
+  const addPoint = (
+    areaId: string,
+    description: string,
+    qrCode: string,
+    qrId: string,
+    scansRequiredPerHour?: number
+  ) => {
     setData(prev => ({
       ...prev,
-      points: [...prev.points, { id: Date.now().toString(), description, areaId }],
+      points: [
+        ...prev.points,
+        {
+          id: Date.now().toString(),
+          description,
+          areaId,
+          qrCode,
+          qrId,
+          scansRequiredPerHour,
+        },
+      ],
     }));
   };
 
   return (
-    <PatrolContext.Provider value={{ data, addCompany, deleteCompany, addSite, addArea, addPoint }}>
+    <PatrolContext.Provider value={{ data, addCompany, deleteCompany, addSite, addArea, addPoint, addPatrolLog }}>
       {children}
     </PatrolContext.Provider>
   );

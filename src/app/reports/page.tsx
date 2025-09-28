@@ -1,12 +1,16 @@
+  // ...existing code...
+// ...existing code...
+// Move this handler below sortedLogs definition
+"use client";
 import React, { useMemo, useState, useEffect } from 'react';
 import Select from '../ui/Select';
 import Input from '../ui/Input';
-import { Document, Page, Text, View, StyleSheet, PDFDownloadLink } from '@react-pdf/renderer';
 import Papa from 'papaparse';
+import dynamic from 'next/dynamic';
+
+const ReportPDF = dynamic(() => import('./ReportPDF'), { ssr: false });
 
 // Types
-export type SortableColumn = 'timestamp' | 'officerName' | 'companyNumber' | 'areaName' | 'pointDescription';
-
 type PatrolLog = {
   id: string;
   timestamp: string;
@@ -25,11 +29,26 @@ type ResolvedLog = PatrolLog & {
 
 
 const ReportsPage: React.FC = () => {
+  // ...existing code...
+  // CSV Export Handler
+  const handleCSVExport = () => {
+    if (sortedLogs.length === 0) return;
+    const csv = Papa.unparse(sortedLogs);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'patrol-logs.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
   // Backend data state
-  const [patrolLogs, setPatrolLogs] = useState<any[]>([]);
-  const [points, setPoints] = useState<any[]>([]);
-  const [areas, setAreas] = useState<any[]>([]);
-  const [sites, setSites] = useState<any[]>([]);
+  const [patrolLogs, setPatrolLogs] = useState<PatrolLog[]>([]);
+  const [points, setPoints] = useState<Point[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -51,12 +70,12 @@ const ReportsPage: React.FC = () => {
           fetch('/api/site'),
         ]);
         if (!logsRes.ok || !pointsRes.ok || !areasRes.ok || !sitesRes.ok) throw new Error('Failed to fetch data');
-        setPatrolLogs(await logsRes.json());
-        setPoints(await pointsRes.json());
-        setAreas(await areasRes.json());
-        setSites(await sitesRes.json());
-      } catch (err: any) {
-        setError(err.message || 'Error loading data');
+        setPatrolLogs(await logsRes.json() as PatrolLog[]);
+        setPoints(await pointsRes.json() as Point[]);
+        setAreas(await areasRes.json() as Area[]);
+        setSites(await sitesRes.json() as Site[]);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Error loading data');
       } finally {
         setLoading(false);
       }
@@ -65,20 +84,20 @@ const ReportsPage: React.FC = () => {
   }, []);
 
   // Memoized list for officer filter dropdown
-  const uniqueOfficers: string[] = useMemo(() => [...new Set(patrolLogs.map((log: any) => log.officerName))].sort() as string[], [patrolLogs]);
+  const uniqueOfficers: string[] = useMemo(() => [...new Set(patrolLogs.map((log) => log.officerName))].sort(), [patrolLogs]);
 
   const filteredLogs = useMemo(() => {
     return patrolLogs
-      .filter((log: any) => !selectedOfficer || log.officerName === selectedOfficer)
-      .filter((log: any) => !companyNumberFilter || log.companyNumber?.toLowerCase().includes(companyNumberFilter.toLowerCase()))
-      .filter((log: any) => !selectedSiteId || log.siteId === selectedSiteId);
+      .filter((log) => !selectedOfficer || log.officerName === selectedOfficer)
+      .filter((log) => !companyNumberFilter || log.companyNumber?.toLowerCase().includes(companyNumberFilter.toLowerCase()))
+      .filter((log) => !selectedSiteId || log.siteId === selectedSiteId);
   }, [patrolLogs, selectedOfficer, companyNumberFilter, selectedSiteId]);
 
   const resolvedLogs: ResolvedLog[] = useMemo(() => {
-    return filteredLogs.map((log: any) => {
-      const point = points.find((p: any) => p.id === log.pointId);
-      const area = point ? areas.find((a: any) => a.id === point.areaId) : undefined;
-      const site = sites.find((s: any) => s.id === log.siteId);
+    return filteredLogs.map((log) => {
+      const point = points.find((p) => p.id === log.pointId);
+      const area = point ? areas.find((a) => a.id === point.areaId) : undefined;
+      const site = sites.find((s) => s.id === log.siteId);
       return {
         ...log,
         pointDescription: point?.description ?? 'N/A',
@@ -89,7 +108,7 @@ const ReportsPage: React.FC = () => {
   }, [filteredLogs, points, areas, sites]);
 
   const sortedLogs = useMemo(() => {
-    let sortableItems = [...resolvedLogs];
+    const sortableItems = [...resolvedLogs];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         const aValue = a[sortConfig.key];
@@ -121,58 +140,42 @@ const ReportsPage: React.FC = () => {
     return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
   };
 
-  // PDF Export Component
-  const styles = StyleSheet.create({
-    page: { padding: 24 },
-    row: { flexDirection: 'row', borderBottom: '1px solid #eee', padding: 4 },
-    cell: { flex: 1, fontSize: 10, padding: 2 },
-    header: { fontWeight: 'bold', backgroundColor: '#f3f4f6' },
-  });
 
-  const PatrolLogsPDF = ({ logs }: { logs: ResolvedLog[] }) => (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <View style={[styles.row, styles.header]}>
-          <Text style={styles.cell}>Timestamp</Text>
-          <Text style={styles.cell}>Officer Name</Text>
-          <Text style={styles.cell}>Company No.</Text>
-          <Text style={styles.cell}>Area</Text>
-          <Text style={styles.cell}>Point Description</Text>
-          <Text style={styles.cell}>Geo-Location</Text>
-        </View>
-        {logs.map((log, idx) => (
-          <View key={log.id || idx} style={styles.row}>
-            <Text style={styles.cell}>{new Date(log.timestamp).toLocaleString()}</Text>
-            <Text style={styles.cell}>{log.officerName}</Text>
-            <Text style={styles.cell}>{log.companyNumber}</Text>
-            <Text style={styles.cell}>{log.areaName}</Text>
-            <Text style={styles.cell}>{log.pointDescription}</Text>
-            <Text style={styles.cell}>{log.geoLocation}</Text>
-          </View>
-        ))}
-      </Page>
-    </Document>
-  );
 
-  // CSV Export Handler
-  const handleCSVExport = () => {
-    const csv = Papa.unparse(sortedLogs.map(log => ({
-      Timestamp: new Date(log.timestamp).toLocaleString(),
-      OfficerName: log.officerName,
-      CompanyNumber: log.companyNumber,
-      Area: log.areaName,
-      PointDescription: log.pointDescription,
-      GeoLocation: log.geoLocation,
-    })));
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'patrol-logs.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+// Types
+type SortableColumn = 'timestamp' | 'officerName' | 'companyNumber' | 'areaName' | 'pointDescription';
+
+interface PatrolLog {
+  id: string;
+  timestamp: string;
+  officerName: string;
+  companyNumber: string;
+  pointId: string;
+  siteId: string;
+  geoLocation: string;
+}
+
+interface Point {
+  id: string;
+  description: string;
+  areaId: string;
+}
+
+interface Area {
+  id: string;
+  name: string;
+}
+
+interface Site {
+  id: string;
+  name: string;
+}
+
+interface ResolvedLog extends PatrolLog {
+  pointDescription: string;
+  areaName: string;
+  siteName: string;
+}
 
   return (
     <div>
@@ -183,7 +186,7 @@ const ReportsPage: React.FC = () => {
             <label htmlFor="officerFilter" className="block text-sm font-medium text-gray-700 mb-1">
               Officer Name
             </label>
-            <Select id="officerFilter" value={selectedOfficer} onChange={e => setSelectedOfficer(e.target.value)}>
+            <Select id="officerFilter" value={selectedOfficer} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedOfficer(e.target.value)}>
               <option value="">All Officers</option>
               {uniqueOfficers.map((officer: string) => (
                 <option key={officer} value={officer}>{officer}</option>
@@ -199,25 +202,23 @@ const ReportsPage: React.FC = () => {
               type="text" 
               placeholder="Filter by Company No." 
               value={companyNumberFilter} 
-              onChange={e => setCompanyNumberFilter(e.target.value)} 
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCompanyNumberFilter(e.target.value)} 
             />
           </div>
           <div>
             <label htmlFor="siteFilter" className="block text-sm font-medium text-gray-700 mb-1">
               Site
             </label>
-            <Select id="siteFilter" value={selectedSiteId} onChange={e => setSelectedSiteId(e.target.value)}>
+            <Select id="siteFilter" value={selectedSiteId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedSiteId(e.target.value)}>
               <option value="">All Sites</option>
-              {sites.map((site: any) => (
+              {sites.map((site: { id: string; name: string }) => (
                 <option key={site.id} value={site.id}>{site.name}</option>
               ))}
             </Select>
           </div>
         </div>
         <div className="flex gap-2 mt-4">
-          <PDFDownloadLink document={<PatrolLogsPDF logs={sortedLogs} />} fileName="patrol-logs.pdf">
-            {({ loading }) => loading ? 'Generating PDF...' : <button className="px-4 py-2 bg-primary-500 text-white rounded">Download PDF</button>}
-          </PDFDownloadLink>
+          <ReportPDF logs={sortedLogs} />
           <button className="px-4 py-2 bg-primary-500 text-white rounded" onClick={handleCSVExport}>Download CSV</button>
         </div>
       </div>
@@ -255,7 +256,7 @@ const ReportsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {sortedLogs.map((log: any) => (
+              {sortedLogs.map((log: ResolvedLog) => (
                 <tr key={log.id} className="bg-white border-b hover:bg-gray-50">
                   <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
                     {new Date(log.timestamp).toLocaleString()}

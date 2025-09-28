@@ -1,12 +1,47 @@
+"use client";
 import React, { useState } from 'react';
-import { usePatrol } from '../../context/PatrolContext';
-import Card from '../ui/Card';
-import Input from '../ui/Input';
-import Button from '../ui/Button';
-import Select from '../ui/Select';
+import { PatrolProvider, usePatrol } from '../PatrolContext';
+// Types
+interface Company {
+  id: string;
+  name: string;
+}
+
+interface Site {
+  id: string;
+  name: string;
+  companyId: string;
+}
+
+interface Area {
+  id: string;
+  name: string;
+  siteId: string;
+}
+
+interface Point {
+  id: string;
+  description: string;
+  areaId: string;
+  qrCode: string;
+  qrId: string;
+  scansRequiredPerHour?: number;
+}
+import Card from '../../ui/Card';
+import Input from '../../ui/Input';
+import Button from '../../ui/Button';
+import Select from '../../ui/Select';
 import { Building, Map, Scan, Grid3x3, Trash2 } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
+  return (
+    <PatrolProvider>
+      <Dashboard />
+    </PatrolProvider>
+  );
+};
+
+const Dashboard: React.FC = () => {
   const { data, addCompany, deleteCompany, addSite, addArea, addPoint } = usePatrol();
 
   // State for forms
@@ -17,6 +52,9 @@ const DashboardPage: React.FC = () => {
   const [selectedSiteIdForArea, setSelectedSiteIdForArea] = useState('');
   const [pointDescription, setPointDescription] = useState('');
   const [selectedAreaIdForPoint, setSelectedAreaIdForPoint] = useState('');
+  const [qrCode, setQrCode] = useState('');
+  const [qrId, setQrId] = useState('');
+  const [scansRequiredPerHour, setScansRequiredPerHour] = useState<number | undefined>(undefined);
 
   // Handlers
   const handleAddCompany = (e: React.FormEvent) => {
@@ -53,10 +91,24 @@ const DashboardPage: React.FC = () => {
 
   const handleAddPoint = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pointDescription.trim() && selectedAreaIdForPoint) {
-      addPoint(selectedAreaIdForPoint, pointDescription.trim());
+    if (
+      pointDescription.trim() &&
+      selectedAreaIdForPoint &&
+      qrCode.trim() &&
+      qrId.trim()
+    ) {
+      addPoint(
+        selectedAreaIdForPoint,
+        pointDescription.trim(),
+        qrCode.trim(),
+        qrId.trim(),
+        scansRequiredPerHour
+      );
       setPointDescription('');
       setSelectedAreaIdForPoint('');
+      setQrCode('');
+      setQrId('');
+      setScansRequiredPerHour(undefined);
     }
   };
 
@@ -79,11 +131,11 @@ const DashboardPage: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-bold text-gray-700 mb-4">Manage Companies</h2>
           <form onSubmit={handleAddCompany} className="flex gap-2 mb-4">
-            <Input type="text" placeholder="New Company Name" value={companyName} onChange={e => setCompanyName(e.target.value)} required />
+            <Input type="text" placeholder="New Company Name" value={companyName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCompanyName(e.target.value)} required />
             <Button type="submit">Add</Button>
           </form>
           <ul className="space-y-2 max-h-60 overflow-y-auto">
-            {data.companies.map(company => (
+            {data.companies.map((company: Company) => (
               <li key={company.id} className="flex justify-between items-center bg-gray-50 p-2 rounded">
                 <span>{company.name}</span>
                 <Button variant="danger" size="sm" onClick={() => handleDeleteCompany(company.id)}>
@@ -99,16 +151,16 @@ const DashboardPage: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-bold text-gray-700 mb-4">Manage Sites</h2>
           <form onSubmit={handleAddSite} className="space-y-3 mb-4">
-            <Select value={selectedCompanyIdForSite} onChange={e => setSelectedCompanyIdForSite(e.target.value)} required>
+            <Select value={selectedCompanyIdForSite} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedCompanyIdForSite(e.target.value)} required>
               <option value="">Select Company</option>
-              {data.companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {data.companies.map((c: Company) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
-            <Input type="text" placeholder="New Site Name" value={siteName} onChange={e => setSiteName(e.target.value)} required />
+            <Input type="text" placeholder="New Site Name" value={siteName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSiteName(e.target.value)} required />
             <Button type="submit" disabled={!selectedCompanyIdForSite || data.companies.length === 0}>Add Site</Button>
           </form>
           <ul className="space-y-2 max-h-60 overflow-y-auto">
-            {data.sites.map(site => {
-                const company = data.companies.find(c => c.id === site.companyId);
+      {data.sites.map((site: Site) => {
+        const company = data.companies.find((c: Company) => c.id === site.companyId);
                 return (
                     <li key={site.id} className="bg-gray-50 p-2 rounded">
                         <strong>{site.name}</strong> <span className="text-xs text-gray-500">({company?.name || 'Unknown Company'})</span>
@@ -123,16 +175,16 @@ const DashboardPage: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-bold text-gray-700 mb-4">Manage Areas</h2>
           <form onSubmit={handleAddArea} className="space-y-3 mb-4">
-            <Select value={selectedSiteIdForArea} onChange={e => setSelectedSiteIdForArea(e.target.value)} required>
+            <Select value={selectedSiteIdForArea} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedSiteIdForArea(e.target.value)} required>
               <option value="">Select Site</option>
-              {data.sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {data.sites.map((s: Site) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </Select>
-            <Input type="text" placeholder="New Area Name" value={areaName} onChange={e => setAreaName(e.target.value)} required />
+            <Input type="text" placeholder="New Area Name" value={areaName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAreaName(e.target.value)} required />
             <Button type="submit" disabled={!selectedSiteIdForArea || data.sites.length === 0}>Add Area</Button>
           </form>
           <ul className="space-y-2 max-h-60 overflow-y-auto">
-            {data.areas.map(area => {
-                 const site = data.sites.find(s => s.id === area.siteId);
+      {data.areas.map((area: Area) => {
+        const site = data.sites.find((s: Site) => s.id === area.siteId);
                  return (
                     <li key={area.id} className="bg-gray-50 p-2 rounded">
                         <strong>{area.name}</strong> <span className="text-xs text-gray-500">({site?.name || 'Unknown Site'})</span>
@@ -147,16 +199,19 @@ const DashboardPage: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-bold text-gray-700 mb-4">Manage Patrol Points</h2>
           <form onSubmit={handleAddPoint} className="space-y-3 mb-4">
-            <Select value={selectedAreaIdForPoint} onChange={e => setSelectedAreaIdForPoint(e.target.value)} required>
+            <Select value={selectedAreaIdForPoint} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedAreaIdForPoint(e.target.value)} required>
               <option value="">Select Area</option>
-              {data.areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              {data.areas.map((a: Area) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </Select>
-            <Input type="text" placeholder="New Point Description" value={pointDescription} onChange={e => setPointDescription(e.target.value)} required />
+            <Input type="text" placeholder="New Point Description" value={pointDescription} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPointDescription(e.target.value)} required />
+            <Input type="text" placeholder="QR Code" value={qrCode} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQrCode(e.target.value)} required />
+            <Input type="text" placeholder="QR ID" value={qrId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQrId(e.target.value)} required />
+            <Input type="number" placeholder="Scans Required Per Hour (optional)" value={scansRequiredPerHour === undefined ? '' : scansRequiredPerHour} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setScansRequiredPerHour(e.target.value ? Number(e.target.value) : undefined)} />
             <Button type="submit" disabled={!selectedAreaIdForPoint || data.areas.length === 0}>Add Point</Button>
           </form>
           <ul className="space-y-2 max-h-60 overflow-y-auto">
-            {data.points.map(point => {
-                const area = data.areas.find(a => a.id === point.areaId);
+      {data.points.map((point: Point) => {
+        const area = data.areas.find((a: Area) => a.id === point.areaId);
                 return (
                     <li key={point.id} className="bg-gray-50 p-2 rounded">
                         <strong>{point.description}</strong> <span className="text-xs text-gray-500">({area?.name || 'Unknown Area'})</span>

@@ -1,0 +1,6 @@
+src/generated/**/*
+hello-prisma/generated/**/*
+.next
+*.config.js
+*.config.mjs
+next-env.d.ts

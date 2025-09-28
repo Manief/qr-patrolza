@@ -1,17 +1,30 @@
+"use client";
+import { Point } from '../../types/patrol';
 import React, { useState, useRef, useEffect } from 'react';
-import { usePatrol } from '../../context/PatrolContext';
+import { PatrolProvider, usePatrol } from '../PatrolContext';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
 import SignaturePad from '../ui/SignaturePad';
 import { CheckCircle, Search } from 'lucide-react';
 
+interface Area { id: string; name: string; siteId: string; }
+interface Site { id: string; name: string; companyId: string; }
+
+const PatrolPageWrapper: React.FC = () => {
+  return (
+    <PatrolProvider>
+      <PatrolPage />
+    </PatrolProvider>
+  );
+};
+
 const PatrolPage: React.FC = () => {
   const { data, addPatrolLog } = usePatrol();
-  const signaturePadRef = useRef<any>(null);
+  const signaturePadRef = useRef<{ clear: () => void }>(null);
 
   // Form state
   const [qrId, setQrId] = useState('');
-  const [scannedPoint, setScannedPoint] = useState<any>(null);
+  const [scannedPoint, setScannedPoint] = useState<Point | null>(null);
   const [officerName, setOfficerName] = useState('');
   const [companyNumber, setCompanyNumber] = useState('');
   const [notes, setNotes] = useState('');
@@ -38,7 +51,7 @@ const PatrolPage: React.FC = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    const point = data.points.find((p: any) => p.qrId === qrId.trim());
+  const point = data.points.find((p: Point) => p.qrId === qrId.trim());
     if (point) {
       setScannedPoint(point);
     } else {
@@ -47,11 +60,11 @@ const PatrolPage: React.FC = () => {
     }
   };
 
-  const getPointDetails = (point: any) => {
+  const getPointDetails = (point: Point | null) => {
     if (!point) return null;
-    const area = data.areas.find((a: any) => a.id === point.areaId);
+    const area = data.areas.find((a: Area) => a.id === point.areaId);
     if (!area) return { description: point.description, area: 'N/A', site: 'N/A' };
-    const site = data.sites.find((s: any) => s.id === area.siteId);
+    const site = data.sites.find((s: Site) => s.id === area.siteId);
     return {
       description: point.description,
       area: area.name,
@@ -79,7 +92,7 @@ const PatrolPage: React.FC = () => {
       return;
     }
     
-    const site = data.sites.find((s: any) => s.id === data.areas.find((a: any) => a.id === scannedPoint.areaId)?.siteId);
+  const site = data.sites.find((s: Site) => s.id === data.areas.find((a: Area) => a.id === scannedPoint.areaId)?.siteId);
 
     addPatrolLog && addPatrolLog({
       officerName: officerName.trim(),
@@ -214,11 +227,11 @@ const PatrolPage: React.FC = () => {
                 <h2 className="text-xl font-bold text-gray-700 mb-4">Patrol Instructions</h2>
                 <ul className="list-decimal list-inside space-y-2 text-gray-600">
                     <li>Enter the QR ID from the patrol point sticker into the text field, or use a scanner to input it.</li>
-                    <li>Click "Find Point" to verify the location.</li>
+                    <li>Click &quot;Find Point&quot; to verify the location.</li>
                     <li>Fill in your officer details.</li>
-                    <li>Provide your signature using the pad. Click "Save Signature".</li>
+                    <li>Provide your signature using the pad. Click &quot;Save Signature&quot;.</li>
                     <li>Add any relevant notes about the patrol point.</li>
-                    <li>Click "Submit Patrol Log" to complete the entry.</li>
+                    <li>Click &quot;Submit Patrol Log&quot; to complete the entry.</li>
                 </ul>
             </div>
         </div>
@@ -227,4 +240,4 @@ const PatrolPage: React.FC = () => {
   );
 };
 
-export default PatrolPage;
+export default PatrolPageWrapper;

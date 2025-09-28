@@ -1,15 +1,18 @@
 
+import { Point } from '../../types/patrol';
 import React, { useEffect, useState } from 'react';
 import { QRCodeSVG as QRCode } from 'qrcode.react';
 import Button from '../ui/Button';
 import { Printer } from 'lucide-react';
 import QRCodePDF from './QRCodePDF';
 
+interface Area { id: string; name: string; siteId: string; }
+interface Site { id: string; name: string; companyId: string; }
 
 const QRCodePage: React.FC = () => {
-  const [points, setPoints] = useState<any[]>([]);
-  const [areas, setAreas] = useState<any[]>([]);
-  const [sites, setSites] = useState<any[]>([]);
+  const [points, setPoints] = useState<Point[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -27,8 +30,8 @@ const QRCodePage: React.FC = () => {
         setPoints(await pointsRes.json());
         setAreas(await areasRes.json());
         setSites(await sitesRes.json());
-      } catch (err: any) {
-        setError(err.message || 'Error loading data');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Error loading data');
       } finally {
         setLoading(false);
       }
@@ -41,11 +44,11 @@ const QRCodePage: React.FC = () => {
   };
 
   const getPointDetails = (pointId: string) => {
-    const point = points.find((p: any) => p.id === pointId);
+    const point = points.find((p: Point) => p.id === pointId);
     if (!point) return { description: '', area: '', site: '' };
-    const area = areas.find((a: any) => a.id === point.areaId);
+    const area = areas.find((a: Area) => a.id === point.areaId);
     if (!area) return { description: point.description, area: '', site: '' };
-    const site = sites.find((s: any) => s.id === area.siteId);
+    const site = sites.find((s: Site) => s.id === area.siteId);
     return {
       description: point.description,
       area: area.name,
@@ -75,12 +78,12 @@ const QRCodePage: React.FC = () => {
         <>
           <div id="printable-area">
             <div className="grid grid-cols-2 md:grid-cols-3 print:grid-cols-3 gap-4 print:gap-2">
-              {points.map((point: any) => {
+              {points.map((point: Point) => {
                 const details = getPointDetails(point.id);
                 return (
                   <div key={point.id} className="bg-white p-4 rounded-lg shadow-md flex flex-col items-center text-center break-inside-avoid print:shadow-none print:border print:border-dashed print:border-gray-400 print:rounded-none">
                     <div className="p-1 bg-white">
-                      <QRCode value={point.qrCode || point.qrId} size={128} level={"H"} />
+                      <QRCode value={point.qrCode || point.qrId || point.id} size={128} level={"H"} />
                     </div>
                     <div className="mt-3">
                       <p className="font-bold text-gray-800 text-base">{details.description}</p>

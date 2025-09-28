@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+export const runtime = 'nodejs'
 
 export async function GET() {
+  const { PrismaClient } = await import('@prisma/client')
+  const prisma = new PrismaClient()
   const companies = await prisma.company.findMany();
   return NextResponse.json(companies);
 }

@@ -1,3 +1,4 @@
+"use client";
 import React, { useRef, useImperativeHandle, forwardRef } from 'react';
 
 interface SignaturePadProps {
@@ -8,7 +9,7 @@ export interface SignaturePadHandle {
   clear: () => void;
 }
 
-const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(({ onSave }, ref) => {
+const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(function SignaturePad({ onSave }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   let drawing = false;
   let lastX = 0;
@@ -80,7 +81,7 @@ const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(({ onSave
       />
       <div className="flex gap-2 mt-2">
         <button type="button" className="px-3 py-1 rounded bg-primary-500 text-white" onClick={handleSave}>Save Signature</button>
-        <button type="button" className="px-3 py-1 rounded bg-gray-300 text-gray-700" onClick={() => ref && (ref as any).current?.clear()}>Clear</button>
+        <button type="button" className="px-3 py-1 rounded bg-gray-300 text-gray-700" onClick={() => canvasRef.current?.getContext('2d')?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)}>Clear</button>
       </div>
     </div>
   );
